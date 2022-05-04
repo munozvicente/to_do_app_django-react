@@ -1,8 +1,49 @@
-import React from 'react';
+import React, { useState }  from 'react';
 import ListGroup from 'react-bootstrap/ListGroup';
-import { MdCheckBox, MdCheckBoxOutlineBlank, MdEdit, MdDelete } from 'react-icons';
+import { MdCheckBox, MdCheckBoxOutlineBlank, MdEdit, MdDelete } from 'react-icons/md';
+import Button from 'react-bootstrap/Button';
+import Modal from 'react-bootstrap/Modal';
+import FormControl from 'react-bootstrap/FormControl';
 
-export default function TodoList({ todos = [] }) {
+import axios from 'axios';
+
+
+export default function TodoList({ todos = [], setTodos }) {
+
+    const [show, setShow] = useState(false);
+    const [record, setRecord] = useState(null);
+
+    const handleClose = () => {
+        setShow(false);
+    }
+
+    const handleDelete = (id) => {
+        axios.delete(`/api/todos/${id}`)
+            .then(() => {
+                const newTodos = todos.filter(t => {
+                    return t.id !== id
+                });
+                setTodos(setTodos);
+            }).catch(() => {
+                alert("Something went wrong");
+            })
+    }
+
+    const handleUpdate = async (id, value) => {
+        return axios.patch(`/api/todos/${id}`, value)
+            .then((res) => {
+                const { data } = res;
+                const newTodos = todos.map(t => {
+                    if (t.id === id) {
+                        return data;
+                    }
+                    return t;
+                })
+                setTodos(newTodos);
+            }).catch(() => {
+                alert("Something went wrong");
+            })
+    }
 
     const renderListGroupItem = (t) => {
         return <ListGroup.Item key={t.id}
@@ -11,6 +52,10 @@ export default function TodoList({ todos = [] }) {
                 <span style={{
                     marginRight: "12px", 
                     cursor: "pointer"
+                }} onClick={() => {
+                    handleUpdate(t.id, {
+                        completed: !t.completed
+                    })
                 }}>
                     {t.completed === true ? <MdCheckBox /> : <MdCheckBoxOutlineBlank />}
                 </span>
@@ -22,19 +67,50 @@ export default function TodoList({ todos = [] }) {
                 <MdEdit style={{
                     cursor: "pointer",
                     marginRight: "12px"
-                }} />
+                }} onClick={() => {
+                    setRecord(t);
+                    setShow(true);
+                }}/>
                 <MdDelete style={{
                     cursor: "pointer"
-                }} />
+                }} onClick={() => {
+                    handleDelete(t.id);
+                }}/>
             </div>
         </ListGroup.Item>
     }
 
-    return <ListGroup>
-        {todos.map(t => {
-            return <ListGroup.Item key={t.id}>
-                {t.name}
-            </ListGroup.Item>
-        })}
-    </ListGroup>
+    const handleChange = (e) => {
+        setRecord({
+            ...record,
+            name: e.target.value
+        })
+    }
+
+    const handleSavedChanges = async () => {
+        await handleUpdate(record.id, { name: record.name });
+        handleClose();
+    }
+
+    return <div>
+        <ListGroup>
+            {todos.map(renderListGroupItem)}
+        </ListGroup>
+        <Modal show={show} onHide={handleClose}>
+            <Modal.Header closeButton>
+                <Modal.Title>Edit Todo</Modal.Title>
+            </Modal.Header>
+            <Modal.Body>
+                <FormControl value={record ? record.name : ""} onChange={handleChange} />
+            </Modal.Body>
+            <Modal.Footer>
+                <Button variant="secondary" onClick={handleClose}>
+                    Close
+                </Button>
+                <Button variant="primary" onClick={handleSavedChanges}>
+                    Save Changes
+                </Button>
+            </Modal.Footer>
+        </Modal>
+    </div>
 }
